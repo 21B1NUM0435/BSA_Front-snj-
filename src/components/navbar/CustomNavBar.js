@@ -2,6 +2,9 @@ import React from "react";
 import { Layout, Menu, Avatar, Dropdown, Space, Badge } from "antd";
 import { BellOutlined, DownOutlined, MenuOutlined } from "@ant-design/icons";
 
+import NotificationBell from "../notifications/NotificationBell";
+
+
 const { Header } = Layout;
 
 const CustomNavBar = ({ user, setUser, logoutFunction, onClick }) => {
@@ -97,7 +100,9 @@ const CustomNavBar = ({ user, setUser, logoutFunction, onClick }) => {
           ))}
         </div>
 
-        <div
+
+        {/* <NotificationBell /> -aar tur soliv */}
+        {/* <div
           style={{
             backgroundColor: "white",
             borderRadius: "50%",
@@ -113,7 +118,9 @@ const CustomNavBar = ({ user, setUser, logoutFunction, onClick }) => {
               style={{ fontSize: "20px", cursor: "pointer", color: "gray" }}
             />
           </Badge>
-        </div>
+        </div> */}
+
+        <NotificationBell />
 
         <div
           style={{

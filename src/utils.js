@@ -44,6 +44,7 @@ const handleAuthError = async (requestFn) => {
  * @returns {Promise<Object>} - API response data
  */
 export const fetchData = async (endpoint, params = {}) => {
+
   const makeRequest = async () => {
     const response = await axios.get(`${API_URL}/${endpoint}`, {
       params,
