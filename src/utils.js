@@ -1,68 +1,39 @@
 // src/utils.js
-import axios from "axios";
-import { refreshAccessToken, logoutOAuth } from "./oauth";
-
-const API_URL = "http://127.0.0.1:8000/api"; // API server base URL
-
-/**
- * Creates headers with authentication token if available
- * @returns {Object} Headers object
- */
-const createHeaders = () => {
-  const token = localStorage.getItem('oauth_token');
-  return {
-    'Authorization': token ? `Bearer ${token}` : '',
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
-  };
-};
-
-/**
- * Handles authentication errors by trying to refresh the token
- * @param {Function} requestFn - The original request function to retry
- * @returns {Promise} - The result of the retried request or throws an error
- */
-const handleAuthError = async (requestFn) => {
-  // Try to refresh the token
-  const refreshSuccess = await refreshAccessToken();
-  
-  if (refreshSuccess) {
-    // Retry the original request with new token
-    return await requestFn();
-  } else {
-    // If refresh failed, logout and redirect
-    await logoutOAuth();
-    window.location.href = '/login?error=session_expired';
-    throw new Error('Authentication failed');
-  }
-};
+import api from "./api/axios";
+import { notification } from "antd";
 
 /**
  * Fetch data from the API
  * @param {string} endpoint - API endpoint
  * @param {Object} params - Query parameters
- * @returns {Promise<Object>} - API response data
+ * @returns {Promise<any>} - API response data
  */
 export const fetchData = async (endpoint, params = {}) => {
-
-  const makeRequest = async () => {
-    const response = await axios.get(`${API_URL}/${endpoint}`, {
-      params,
-      headers: createHeaders(),
-      withCredentials: true
-    });
-    return response.data;
-  };
-
   try {
-    return await makeRequest();
-  } catch (error) {
-    // Check if error is due to authentication
-    if (error.response && error.response.status === 401) {
-      return await handleAuthError(makeRequest);
-    }
+    // Make the request with our enhanced API client
+    const response = await api.get(`/api/${endpoint}`, { params });
     
+    // Handle both response formats: direct data or {data: ...} wrapped
+    const responseData = response.data && response.data.hasOwnProperty('data') 
+      ? response.data.data 
+      : response.data;
+    
+    return responseData;
+  } catch (error) {
     console.error("Error fetching data:", error);
+    
+    // Show notification for user
+    const errorMessage = error.response?.data?.message || 
+                         error.response?.data?.error || 
+                         error.message || 
+                         'An unexpected error occurred';
+    
+    notification.error({
+      message: "Request Failed",
+      description: errorMessage,
+      duration: 5
+    });
+    
     throw error;
   }
 };
@@ -72,29 +43,119 @@ export const fetchData = async (endpoint, params = {}) => {
  * @param {string} endpoint - API endpoint
  * @param {Object} data - Data to send
  * @param {string} method - HTTP method (post, put, etc.)
- * @returns {Promise<Object>} - API response data
+ * @returns {Promise<any>} - API response data
  */
 export const postData = async (endpoint, data, method = "post") => {
-  const makeRequest = async () => {
-    const response = await axios({
-      method,
-      url: `${API_URL}/${endpoint}`,
-      data,
-      headers: createHeaders(),
-      withCredentials: true
-    });
-    return response.data;
-  };
-
   try {
-    return await makeRequest();
-  } catch (error) {
-    // Check if error is due to authentication
-    if (error.response && error.response.status === 401) {
-      return await handleAuthError(makeRequest);
+    let response;
+    
+    if (method.toLowerCase() === "post") {
+      response = await api.post(`/api/${endpoint}`, data);
+    } else if (method.toLowerCase() === "put") {
+      response = await api.put(`/api/${endpoint}`, data);
+    } else if (method.toLowerCase() === "delete") {
+      response = await api.delete(`/api/${endpoint}`);
+    } else {
+      throw new Error(`Unsupported method: ${method}`);
     }
     
-    console.error("Error sending data:", error);
+    // Handle success message if present
+    if (response.data?.message) {
+      notification.success({
+        message: "Success",
+        description: response.data.message,
+        duration: 3
+      });
+    }
+    
+    // Handle both response formats: direct data or {data: ...} wrapped
+    const responseData = response.data && response.data.hasOwnProperty('data') 
+      ? response.data.data 
+      : response.data;
+    
+    return responseData;
+  } catch (error) {
+    console.error(`Error ${method} data:`, error);
+    
+    // Show notification for user
+    const errorMessage = error.response?.data?.message || 
+                         error.response?.data?.error || 
+                         error.message || 
+                         'An unexpected error occurred';
+    
+    notification.error({
+      message: "Request Failed",
+      description: errorMessage,
+      duration: 5
+    });
+    
     throw error;
   }
+};
+
+/**
+ * Format data for display
+ * @param {any} value - Value to format
+ * @param {string} type - Type of formatting
+ * @returns {string} - Formatted value
+ */
+export const formatData = (value, type = 'text') => {
+  if (value === null || value === undefined) {
+    return '-';
+  }
+  
+  switch (type) {
+    case 'date':
+      return new Date(value).toLocaleDateString();
+    case 'datetime':
+      return new Date(value).toLocaleString();
+    case 'boolean':
+      return value ? 'Yes' : 'No';
+    case 'number':
+      return typeof value === 'number' ? value.toLocaleString() : value;
+    default:
+      return value;
+  }
+};
+
+/**
+ * Parse JSON safely
+ * @param {string} jsonString - JSON string to parse
+ * @param {any} defaultValue - Default value if parsing fails
+ * @returns {any} - Parsed object or default value
+ */
+export const safeParseJSON = (jsonString, defaultValue = {}) => {
+  try {
+    return typeof jsonString === 'string' 
+      ? JSON.parse(jsonString) 
+      : jsonString || defaultValue;
+  } catch (e) {
+    console.error('Error parsing JSON:', e);
+    return defaultValue;
+  }
+};
+
+/**
+ * Check if a value is empty (null, undefined, empty string/array/object)
+ * @param {any} value - Value to check
+ * @returns {boolean} - True if empty
+ */
+export const isEmpty = (value) => {
+  if (value === null || value === undefined) {
+    return true;
+  }
+  
+  if (typeof value === 'string') {
+    return value.trim() === '';
+  }
+  
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  
+  if (typeof value === 'object') {
+    return Object.keys(value).length === 0;
+  }
+  
+  return false;
 };

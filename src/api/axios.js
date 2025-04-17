@@ -20,6 +20,7 @@ api.interceptors.request.use(
     return config;
   },
   error => {
+    console.error('API request error:', error);
     return Promise.reject(error);
   }
 );
@@ -32,8 +33,13 @@ api.interceptors.response.use(
   async error => {
     const originalRequest = error.config;
     
-    // If error is 401 (Unauthorized) and we haven't already tried to refresh
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+    // Don't retry if we've already tried to refresh
+    if (originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    // If error is 401 (Unauthorized)
+    if (error.response && error.response.status === 401) {
       originalRequest._retry = true;
       
       try {
@@ -61,11 +67,13 @@ api.interceptors.response.use(
           localStorage.setItem('token_time', response.data.token_time.toString());
           
           // Update the Authorization header
-          axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access_token}`;
+          api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access_token}`;
           originalRequest.headers['Authorization'] = `Bearer ${response.data.access_token}`;
           
           // Retry the original request
-          return axios(originalRequest);
+          return api(originalRequest);
+        } else {
+          throw new Error('Failed to refresh token: invalid response');
         }
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);
@@ -76,14 +84,83 @@ api.interceptors.response.use(
         localStorage.removeItem('expires_in');
         localStorage.removeItem('token_time');
         
+        // Dispatch event so app can handle auth failure
+        window.dispatchEvent(new CustomEvent('auth:failed'));
+        
         // Redirect to login page if token refresh fails
-        window.location.href = '/login?error=session_expired';
+        // Use a callback to allow the app to handle this
+        if (typeof api.onAuthFailure === 'function') {
+          api.onAuthFailure();
+        } else {
+          // Default behavior
+          window.location.href = '/login?error=session_expired';
+        }
+        
+        return Promise.reject(refreshError);
       }
     }
     
+    // For other errors, just reject
     return Promise.reject(error);
   }
 );
 
-// Export the api instance as default
-export default api;
+// Set a callback for auth failures
+api.setAuthFailureHandler = (callback) => {
+  api.onAuthFailure = callback;
+};
+
+// Helper for detailed logging
+const logError = (method, url, error) => {
+  console.error(`API ${method} request to ${url} failed:`, 
+    error.response ? {
+      status: error.response.status,
+      data: error.response.data,
+      headers: error.response.headers
+    } : error.message);
+};
+
+// Enhance api with better error handling
+const enhancedApi = {
+  get: async (url, config = {}) => {
+    try {
+      return await api.get(url, config);
+    } catch (error) {
+      logError('GET', url, error);
+      throw error;
+    }
+  },
+  
+  post: async (url, data = {}, config = {}) => {
+    try {
+      return await api.post(url, data, config);
+    } catch (error) {
+      logError('POST', url, error);
+      throw error;
+    }
+  },
+  
+  put: async (url, data = {}, config = {}) => {
+    try {
+      return await api.put(url, data, config);
+    } catch (error) {
+      logError('PUT', url, error);
+      throw error;
+    }
+  },
+  
+  delete: async (url, config = {}) => {
+    try {
+      return await api.delete(url, config);
+    } catch (error) {
+      logError('DELETE', url, error);
+      throw error;
+    }
+  },
+  
+  // Add original axios instance and helper methods
+  instance: api,
+  setAuthFailureHandler: api.setAuthFailureHandler
+};
+
+export default enhancedApi;
