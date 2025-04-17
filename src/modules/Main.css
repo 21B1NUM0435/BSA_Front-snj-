@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Үндсэн layout-ийн тохиргоо */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Navbar-ийн тохиргоо */
+header {
+  flex-shrink: 0;
+  width: 100%;
+  z-index: 1000; /* Sidebar-ийн доор байлгана */
+  position: relative;
+  border: none !important;
+}
+
+/* Sidebar болон Routes-ийн хэсэг */
+.content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  background: rgb(213, 220, 249);
+  background: linear-gradient(90deg, rgba(213, 220, 249, 1) 0%);
+}
+
+/* Sidebar-ийн загвар */
+.nav-menu-static {
+  width: 250px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  padding-top: 20px;
+  z-index: 2000;
+}
+
+.nav-menu-items {
+  margin-top: 3.3rem !important;
+  list-style: none;
+  padding: 0;
+}
+
+.nav-menu-items li {
+  padding: 10px 20px;
+  display: inline-block;
+  align-items: center;
+  color: #262626;
+}
+
+.nav-menu-items li:hover {
+  color: rgb(53, 2, 223); /* Hover үед өнгийг өөрчилнө */
+}
+
+/* Button-ийн тохиргоо */
+button {
+  color: #262626;
+  border: none;
+  cursor: pointer;
+}
+
+/* Main content-ийн хэсэг */
+.routes-content {
+  flex-grow: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* Ant Design menu-ийн загвар */
+.ant-menu-item,
+.ant-menu-submenu-title {
+  color: #000 !important;
+  background-color: transparent !important;
+}
+
+.ant-menu-item:hover,
+.ant-menu-submenu-title:hover {
+  color: #1a73e8 !important; /* Hover үед цэнхэр өнгө */
+}
+
+.ant-menu-item-selected {
+  color: #1a73e8 !important; /* Идэвхтэй үед цэнхэр өнгө */
+  background-color: #f9f9fc !important;
+}
+
+.ant-menu-submenu-title-selected {
+  color: #1a73e8 !important;
+  background-color: #eaeaec !important;
+}
+
+.ant-menu-submenu-open {
+  color: #1a73e8 !important;
+  background-color: #fcfcfd57 !important;
+}
+
+/* Notification хэсгийг Navbar-ийн дээр байрлуулна */
+.ant-notification {
+  z-index: 1050 !important;
+}
